@@ -1,7 +1,7 @@
 /*
-	calculator08buggy.cpp | From: Programming -- Principles and Practice Using C++, by Bjarne Stroustrup
-	We have inserted 3 bugs that the compiler will catch and 3 that it won't.
-*/
+ *  UCF COP3330 Fall 2021 Assignment 6 Solution
+ *  Copyright 2021 Gianni Angelone
+ */
 
 #include "std_lib_facilities.h"
 
@@ -11,6 +11,7 @@ struct Token {
     string name;
     Token(char ch) :kind(ch), value(0) { }
     Token(char ch, double val) :kind(ch), value(val) { }
+    Token(char ch, string n) :kind(ch), name(n) { }
 };
 
 class Token_stream {
@@ -18,10 +19,8 @@ class Token_stream {
     Token buffer;
 public:
     Token_stream() :full(0), buffer(0) { }
-
     Token get();
     void unget(Token t) { buffer = t; full = true; }
-
     void ignore(char);
 };
 
@@ -30,6 +29,7 @@ const char quit = 'Q';
 const char print = ';';
 const char number = '8';
 const char name = 'a';
+const char con = 'C';
 
 Token Token_stream::get()
 {
@@ -64,17 +64,21 @@ Token Token_stream::get()
             return Token(number, val);
         }
         default:
-            if (isalpha(ch)) {
+            if (isalpha(ch) || ch == '_') {
                 string s;
                 s += ch;
-                while (cin.get(ch) && (isalpha(ch) || isdigit(ch))) s = ch;
+                while(cin.get(ch) && (isalpha(ch) || isdigit(ch) || ch == '_')) { //Account in the underscore
+                    s+=ch;
+                }
                 cin.unget();
-                if (s == "let") return Token(let);
-                if (s == "quit") return Token(name);
+                if (s == "let") return Token(let); //Return variable defined by user
+                if (s == "const") return Token(con); //Return constant defined by user
+                if (s == "quit") return Token(quit); //End the program
                 return Token(name, s);
             }
             error("Bad token");
     }
+    return 0;
 }
 
 void Token_stream::ignore(char c)
@@ -84,7 +88,6 @@ void Token_stream::ignore(char c)
         return;
     }
     full = false;
-
     char ch;
     while (cin >> ch)
         if (ch == c) return;
@@ -93,7 +96,8 @@ void Token_stream::ignore(char c)
 struct Variable {
     string name;
     double value;
-    Variable(string n, double v) :name(n), value(v) { }
+    bool is_const;
+    Variable(string n, double v, bool b) :name(n), value(v), is_const(b) { }
 };
 
 vector<Variable> names;
@@ -107,18 +111,25 @@ double get_value(string s)
 
 void set_value(string s, double d)
 {
-    for (int i = 0; i <= names.size(); ++i)
+    for (int i = 0; i <= names.size(); ++i) {
         if (names[i].name == s) {
             names[i].value = d;
             return;
         }
+    }
     error("set: undefined name ", s);
 }
 
 bool is_declared(string s)
 {
     for (int i = 0; i < names.size(); ++i)
-        if (names[i].name == s) return true;
+    {
+        if (names[i].name == s && names[i].is_const == true)
+            error("Cannot reassign const variable");
+        else if (names[i].name == s && names[i].is_const == false)
+            return true;
+    }
+
     return false;
 }
 
@@ -134,13 +145,24 @@ double primary()
         {	double d = expression();
             t = ts.get();
             if (t.kind != ')') error("'(' expected");
+            return d;
         }
         case '-':
             return -primary();
+        case '+':
+            return primary();
         case number:
             return t.value;
         case name:
-            return get_value(t.name);
+        {   Token t2 = ts.get();
+            if (t2.kind == '=') {
+                double d = expression();
+                return d;
+            }
+            else {
+                ts.unget(t2);
+            }
+        }
         default:
             error("primary expected");
     }
@@ -171,15 +193,19 @@ double term()
 double expression()
 {
     double left = term();
+    Token t = ts.get();
     while (true) {
-        Token t = ts.get();
         switch (t.kind) {
             case '+':
                 left += term();
+                t = ts.get();
                 break;
             case '-':
                 left -= term();
+                t = ts.get();
                 break;
+            case '=':
+                error("use of '=' outside of a declaration");
             default:
                 ts.unget(t);
                 return left;
@@ -190,13 +216,46 @@ double expression()
 double declaration()
 {
     Token t = ts.get();
-    if (t.kind != 'a') error("name expected in declaration");
+    bool isC;
+    if (t.kind == 'C')
+    {
+        isC = true;
+        t = ts.get();  //Gets next word
+    }
+    else
+        isC = false;
+
+    if (t.kind != 'a')
+        error("name expected in declaration;");
+
     string name = t.name;
-    if (is_declared(name)) error(name, " declared twice");
+    if (is_declared(name))
+    {
+        cout << name + ", declared twice. Would you like to reassign? (No need to print with ';') y/n > ";
+        cin.clear();
+        cin.ignore(10000, '\n');
+        string ans;
+        getline(cin, ans);
+        if (ans == "n")
+            error(name, ", will not be reassigned; ");
+        if (ans == "y")
+        {
+            cout << "(No need to print with ';') Please enter new value: ";
+            int val;
+            cin >> val;
+            set_value(name, val);
+            double d = val;
+            return d; //Calculator is reset
+        }
+    }
+
     Token t2 = ts.get();
-    if (t2.kind != '=') error("= missing in declaration of ", name);
+    if (t2.kind != '=')
+        error("= missing in declaration of ", name);
+
     double d = expression();
-    names.push_back(Variable(name, d));
+    names.push_back(Variable(name, d, isC));
+
     return d;
 }
 
@@ -205,6 +264,8 @@ double statement()
     Token t = ts.get();
     switch (t.kind) {
         case let:
+            return declaration();
+        case con:
             return declaration();
         default:
             ts.unget(t);
