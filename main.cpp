@@ -154,13 +154,17 @@ double primary()
         case number:
             return t.value;
         case name:
-        {   Token t2 = ts.get();
-            if (t2.kind == '=') {
+        {
+            Token t2 = ts.get();
+            if (t2.kind == '=')
+            {	// handle name = expression
                 double d = expression();
+                set_value(t2.name,d);
                 return d;
             }
             else {
                 ts.unget(t2);
+                return get_value(t2.name);
             }
         }
         default:
