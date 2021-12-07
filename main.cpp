@@ -9,7 +9,7 @@ struct Token {
     char kind;
     double value;
     string name;
-    Token(char ch) :kind(ch), value(0) { }
+    Token(char ch) :kind(ch), value(0) { } //These are our operators
     Token(char ch, double val) :kind(ch), value(val) { }
     Token(char ch, string n) :kind(ch), name(n) { }
 };
@@ -21,17 +21,17 @@ public:
     Token_stream() :full(0), buffer(0) { }
     Token get();
     void unget(Token t) { buffer = t; full = true; }
-    void ignore(char);
+    void ignore(char); //Not accounting unused characters
 };
 
-const char let = 'L';
-const char quit = 'Q';
-const char print = ';';
+const char let = 'L'; //User variables
+const char quit = 'Q'; //To quit the program
+const char print = ';'; //Prints to screen
 const char number = '8';
-const char name = 'a';
-const char con = 'C';
+const char name = 'a'; //Indicator
+const char con = 'C'; //Constant
 
-Token Token_stream::get()
+Token Token_stream::get() //Grab from user
 {
     if (full) { full = false; return buffer; }
     char ch;
@@ -93,7 +93,7 @@ void Token_stream::ignore(char c)
         if (ch == c) return;
 }
 
-struct Variable {
+struct Variable { //Struct for names of variables
     string name;
     double value;
     bool is_const;
@@ -102,14 +102,14 @@ struct Variable {
 
 vector<Variable> names;
 
-double get_value(string s)
+double get_value(string s) //Gets the value
 {
     for (int i = 0; i < names.size(); ++i)
         if (names[i].name == s) return names[i].value;
     error("get: undefined name ", s);
 }
 
-void set_value(string s, double d)
+void set_value(string s, double d) //Sets the value
 {
     for (int i = 0; i <= names.size(); ++i) {
         if (names[i].name == s) {
@@ -120,7 +120,7 @@ void set_value(string s, double d)
     error("set: undefined name ", s);
 }
 
-bool is_declared(string s)
+bool is_declared(string s) //Checks if name has already been declared
 {
     for (int i = 0; i < names.size(); ++i)
     {
@@ -230,21 +230,21 @@ double declaration()
         isC = false;
 
     if (t.kind != 'a')
-        error("name expected in declaration;");
+        error("name expected in declaration;"); //Name error
 
     string name = t.name;
     if (is_declared(name))
     {
-        cout << name + ", declared twice. Would you like to reassign? (No need to print with ';') y/n > ";
+        cout << name + ", has been declared twice. Would you like to reenter your value with another variable? y/n > ";
         cin.clear();
         cin.ignore(10000, '\n');
-        string ans;
-        getline(cin, ans);
-        if (ans == "n")
+        string response;
+        getline(cin, response);
+        if (response == "n")
             error(name, ", will not be reassigned; ");
-        if (ans == "y")
+        if (response == "y")
         {
-            cout << "(No need to print with ';') Please enter new value: ";
+            cout << "(Please reenter a new value: ";
             int val;
             cin >> val;
             set_value(name, val);
@@ -255,7 +255,7 @@ double declaration()
 
     Token t2 = ts.get();
     if (t2.kind != '=')
-        error("= missing in declaration of ", name);
+        error("= missing in declaration of ", name); //Equal sign error
 
     double d = expression();
     names.push_back(Variable(name, d, isC));
@@ -304,7 +304,7 @@ void calculate()
 int main()
 
 try {
-    calculate();
+    calculate(); //Does the calculations and returns proper error message
     return 0;
 }
 catch (exception& e) {
